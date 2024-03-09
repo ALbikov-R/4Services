@@ -1,0 +1,70 @@
+version: '3'
+
+services:
+  postgres:
+    restart: always
+    image: postgres:14.0
+    environment:
+      POSTGRES_DB: 4service
+      POSTGRES_USER: kitten23
+      POSTGRES_PASSWORD: 1234
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./database:/var/lib/postgresql/data
+  mongodb:
+    restart: always
+    image: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - mongodb_data:/var/lib/mongo/data
+  #Product 
+  product:
+    build: /Product
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - inventory
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_PASSWORD: 1234
+      DB_USER: kitten23
+      DB_NAME: 4service
+      PORT_gRPC: :1487
+      PORT_router: :8080
+  #Inventory 
+  inventory:
+    build: /Inventory
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_PASSWORD: 1234
+      DB_USER: kitten23
+      DB_NAME: 4service
+      PORT_gRPC: :1487
+      PORT_router: :8082
+  #Order
+  order:
+    build: /Order
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongodb
+      - inventory
+    environment:
+      PORT_gRPC: :1487
+      PORT_router: :8081
+      MONGODB_URI: "mongodb://root:example@mongodb:27017/"
+volumes:
+  database:
+  mongodb_data: 

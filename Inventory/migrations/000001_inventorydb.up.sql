@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS inventory (
+    id SERIAL PRIMARY KEY,
+    naming VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL,
+    price VARCHAR(255) NOT NULL
+);
