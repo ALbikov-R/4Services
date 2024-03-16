@@ -88,12 +88,12 @@ localhost:8080/cart  -   POST Передать корзину в Order (orders:8
 В данном сервисе используется REST, gRPC, migrations, Kafka, MongoDB
 ### End points
 ```text
-	localhost:8081/orders      -   GET Получить информацию о всех заказах
-    localhost:8081/orders/{id} -   GET Получить информацию об заказе с номером ID
-	localhost:8081/orders      -   POST Создать заказ
-	localhost:8081/orders/{id} -   PUT Изменить в заказе ID
-    localhost:8081/orders/{id} -   DELETE Удалить заказ ID
-    localhost:8081/orders/{id} -   POST Отправить уведомление в сервис Notification
+localhost:8081/orders      -   GET Получить информацию о всех заказах
+localhost:8081/orders/{id} -   GET Получить информацию об заказе с номером ID
+localhost:8081/orders      -   POST Создать заказ
+localhost:8081/orders/{id} -   PUT Изменить в заказе ID
+localhost:8081/orders/{id} -   DELETE Удалить заказ ID
+localhost:8081/orders/{id} -   POST Отправить уведомление в сервис Notification
 ```
 ## Notification service
 Сервис, который получает уведомление о созданном заказе, используя брокер сообщения Kafka в связке с MongoDB.
@@ -125,11 +125,11 @@ CREATE TABLE IF NOT EXISTS inventory (
 ```
 ### End points
 ```text
-	localhost:8082/inventory      -   GET Получить информацию о предметах
-    localhost:8082/inventory/{id} -   GET Получить информацию о предмете с номером ID
-	localhost:8082/inventory      -   POST Добавить предмет в БД 
-	localhost:8082/inventory/{id} -   PUT Изменить предмет по ID
-    localhost:8082/inventory/{id} -   DELETE Удалить предмет ID
+localhost:8082/inventory      -   GET Получить информацию о предметах
+localhost:8082/inventory/{id} -   GET Получить информацию о предмете с номером ID
+localhost:8082/inventory      -   POST Добавить предмет в БД 
+localhost:8082/inventory/{id} -   PUT Изменить предмет по ID
+localhost:8082/inventory/{id} -   DELETE Удалить предмет ID
 ```
 ## Example of usage 1
 ### Product
