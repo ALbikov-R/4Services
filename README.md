@@ -75,14 +75,14 @@ CREATE TABLE IF NOT EXISTS items (
 ```
 ### End points
 ```text
-	localhost:8080/product      -   GET Получить информацию о всех продуктах
-    localhost:8080/product/{id} -   GET Получить информацию о продукте с номером ID
-	localhost:8080/product      -   POST Добавить продукт в БД и по gRPC в Order 
-	localhost:8080/product/{id} -   PUT Изменить продукт по ID
-    localhost:8080/product/{id} -   DELETE Удалить продукт ID
-    localhost:8080/product/{id} -   POST Добавить предмет в корзину
-    localhost:8080/cart         -   GET Получить список корзины 
-    localhost:8080/cart  -   POST Передать корзину в Order (orders:8081/orders POST)
+localhost:8080/product      -   GET Получить информацию о всех продуктах
+localhost:8080/product/{id} -   GET Получить информацию о продукте с номером ID
+localhost:8080/product      -   POST Добавить продукт в БД и по gRPC в Order 
+localhost:8080/product/{id} -   PUT Изменить продукт по ID
+localhost:8080/product/{id} -   DELETE Удалить продукт ID
+localhost:8080/product/{id} -   POST Добавить предмет в корзину
+localhost:8080/cart         -   GET Получить список корзины 
+localhost:8080/cart  -   POST Передать корзину в Order (orders:8081/orders POST)
 ```
 ## Order service
 В данном сервисе используется REST, gRPC, migrations, Kafka, MongoDB
@@ -125,11 +125,6 @@ CREATE TABLE IF NOT EXISTS inventory (
 ```
 ### End points
 ```text
-	router.HandleFunc("/inventory", GETInv).Methods("GET")
-	router.HandleFunc("/inventory/{id}", GETInvID).Methods("GET")
-	router.HandleFunc("/inventory", CreateInv).Methods("POST")
-	router.HandleFunc("/inventory/{id}", UpdInv).Methods("PUT")
-	router.HandleFunc("/inventory/{id}", DelInv).Methods("DELETE")
 	localhost:8082/inventory      -   GET Получить информацию о предметах
     localhost:8082/inventory/{id} -   GET Получить информацию о предмете с номером ID
 	localhost:8082/inventory      -   POST Добавить предмет в БД 
