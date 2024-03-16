@@ -1,17 +1,19 @@
 version: '3'
 
 services:
+  #PostgreSQL
   postgres:
     restart: always
     image: postgres:14.0
     environment:
-      POSTGRES_DB: 4service
+      POSTGRES_DB: service
       POSTGRES_USER: kitten23
       POSTGRES_PASSWORD: 1234
     ports:
       - "5432:5432"
     volumes:
       - ./database:/var/lib/postgresql/data
+  #Mongo
   mongodb:
     restart: always
     image: mongo
@@ -21,28 +23,41 @@ services:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
     volumes:
-      - mongodb_data:/var/lib/mongo/data
-  #Product 
+      - mongodb_data:/var/lib/mongo/data 
+  #Kafka
+  kafka:
+    image: bitnami/kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+  #Product grpc-client
   product:
     build: /Product
     ports:
       - "8080:8080"
     depends_on:
       - postgres
-      - inventory
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_PASSWORD: 1234
       DB_USER: kitten23
-      DB_NAME: 4service
-      PORT_gRPC: :1487
+      DB_NAME: service
+      PORT_gRPC: inventory:1487
       PORT_router: :8080
-  #Inventory 
+  #Inventory grpc-server
   inventory:
     build: /Inventory
     ports:
       - "8082:8082"
+      - "1487:1487"
     depends_on:
       - postgres
     environment:
@@ -50,10 +65,10 @@ services:
       DB_PORT: 5432
       DB_PASSWORD: 1234
       DB_USER: kitten23
-      DB_NAME: 4service
-      PORT_gRPC: :1487
+      DB_NAME: service
+      PORT_gRPC: inventory:1487
       PORT_router: :8082
-  #Order
+  #Order grpc-client kafka-producer
   order:
     build: /Order
     ports:
@@ -61,10 +76,22 @@ services:
     depends_on:
       - mongodb
       - inventory
+      - kafka
     environment:
-      PORT_gRPC: :1487
+      PORT_gRPC: inventory:1487
       PORT_router: :8081
       MONGODB_URI: "mongodb://root:example@mongodb:27017/"
+      KAFKA_PORT: "kafka:9092"
+      TOPIC: "Order"
+  #Notification kafka-consumer
+  notif:
+    build: /Notif
+    depends_on:
+      - order
+    environment:
+      MONGODB_URI: "mongodb://root:example@mongodb:27017/"
+      KAFKA_PORT: "kafka:9092"
+      TOPIC: "Order"
 volumes:
   database:
   mongodb_data: 

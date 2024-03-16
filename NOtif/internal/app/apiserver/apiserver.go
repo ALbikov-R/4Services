@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 
 	"github.com/IBM/sarama"
 )
@@ -31,12 +32,10 @@ func NewReceiver(brokerList []string, topic string) (*Receiver, error) {
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 
-	consumer, err := sarama.NewConsumer(brokerList, config)
-	if err != nil {
-		return nil, err
-	}
+	consumer := connectkafka(brokerList, config)
 	partitionConsumer, err := consumer.ConsumePartition(topic, 0, sarama.OffsetNewest)
 	if err != nil {
+		log.Fatal("Error2:", err)
 		return nil, err
 	}
 
@@ -49,6 +48,16 @@ func NewReceiver(brokerList []string, topic string) (*Receiver, error) {
 		Topic:             topic,
 		ShutdownSignal:    shutdownSignal,
 	}, nil
+}
+func connectkafka(brokerList []string, config *sarama.Config) sarama.Consumer {
+	for {
+		consumer, err := sarama.NewConsumer(brokerList, config)
+		if err != nil {
+			time.Sleep(time.Second * 2)
+		} else {
+			return consumer
+		}
+	}
 }
 
 // HandleMessages обрабатывает входящие сообщения
@@ -79,6 +88,7 @@ func (r *Receiver) processMessage(message model.Message) {
 
 func (r *Receiver) Start() {
 	r.store = store.New()
+	r.store.Config.MongoURI = os.Getenv("MONGODB_URI")
 	if r.store.Open() != nil {
 		log.Fatal("Ошибка с открытием БД")
 	}

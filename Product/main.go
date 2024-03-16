@@ -12,8 +12,10 @@ import (
 	"time"
 
 	pb "github.com/ALbikov-R/4ServicesGRPC/gen"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/gorilla/mux"
-	"github.com/graphql-go/graphql"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"google.golang.org/grpc"
@@ -42,101 +44,20 @@ var (
 	db       *sql.DB
 )
 
-const (
-	database_URL = "host=localhost port=5432 user=postgres password=1234 dbname=productdb sslmode=disable"
-)
-
 var connect Congrpc
 
 type Congrpc struct {
 	client pb.InvOrdClient
 	con    *grpc.ClientConn
 	cancel context.CancelFunc
-	ctx    context.Context
-}
-
-var ProductType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "Product",
-	Fields: graphql.Fields{
-		"item_id": &graphql.Field{
-			Type: graphql.String,
-		},
-		"name": &graphql.Field{
-			Type: graphql.String,
-		},
-		"weight": &graphql.Field{
-			Type: graphql.Float,
-		},
-		"description": &graphql.Field{
-			Type: graphql.String,
-		},
-	},
-})
-var rootQuery = graphql.NewObject(graphql.ObjectConfig{
-	Name: "RootQuery",
-	Fields: graphql.Fields{
-		"product": &graphql.Field{
-			Type: graphql.NewList(ProductType),
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				return cart.Prods, nil
-			},
-		},
-	},
-})
-
-func GraphQl() []byte {
-	schema, err := graphql.NewSchema(graphql.SchemaConfig{
-		Query: rootQuery,
-	})
-	if err != nil {
-		fmt.Println("Error", err)
-		return nil
-	}
-	query := `
-		query {
-			product {
-				item_id
-				name
-				weight
-				description
-			}
-		}
-	`
-	params := graphql.Params{
-		Schema:        schema,
-		RequestString: query,
-	}
-	r := graphql.Do(params)
-	if len(r.Errors) > 0 {
-		fmt.Printf("Failed to execute query: %v", r.Errors)
-		return nil
-	}
-	fmt.Println("r-data = ", r.Data)
-	jsdata, err := json.Marshal(r.Data)
-	fmt.Println("js-data = ", string(jsdata))
-	jsonData, err := json.MarshalIndent(r, "", "  ")
-	if err != nil {
-		fmt.Println("Failed to marshal JSON:", err)
-		return nil
-	}
-	fmt.Println("json-data = ", string(jsonData))
-	return jsdata
 }
 
 func main() {
 	db = ConnectDd()
-
+	MigrateUP()
 	defer db.Close()
 	fmt.Println("Подключение к PostgreSQL успешно!")
-	/*tables, err := getTables()
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	fmt.Println("Список таблиц:")
-	for _, tableName := range tables {
-		fmt.Println(tableName)
-	}*/
 	ConnectGrpc()
 	router := mux.NewRouter()
 	router.HandleFunc("/products", GetProducts).Methods("GET")           //Получить информацию о всех продуктах
@@ -152,6 +73,16 @@ func main() {
 	log.Fatal(http.ListenAndServe(PortAddr, router))
 	CloseGrpc()
 }
+func MigrateUP() {
+	m, err := migrate.New("file://migrations", DatabaseURL1()+"&x-migrations-table=inventory_schema")
+	if err != nil {
+		log.Fatal("Fatal to initialize migrate", err)
+	}
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatal("Failed to apply migrations:", err)
+	}
+	log.Println("Migrations applied successfully")
+}
 func CloseGrpc() {
 	connect.con.Close()
 	connect.cancel()
@@ -164,34 +95,6 @@ func ConnectGrpc() {
 		log.Fatal(err)
 	}
 	connect.client = pb.NewInvOrdClient(connect.con)
-	connect.ctx, connect.cancel = context.WithTimeout(context.Background(), time.Second)
-}
-func getTables() ([]string, error) {
-	// Добавляем дополнительную задержку
-	//time.Sleep(30 * time.Second)
-
-	rows, err := db.Query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var tables []string
-	for rows.Next() {
-		var tableName string
-		err := rows.Scan(&tableName)
-		if err != nil {
-			return nil, err
-		}
-		tables = append(tables, tableName)
-	}
-
-	err = rows.Err()
-	if err != nil {
-		return nil, err
-	}
-
-	return tables, nil
 }
 
 func Insert(item Product) (int64, error) {
@@ -255,26 +158,42 @@ func GetData() []Product {
 		var weight float64
 		err := rows.Scan(&id, &naming, &weight, &description)
 		if err != nil {
-			fmt.Println("КАКА2.1.2")
 			panic(err)
 		}
 		prod = append(prod, Product{ID: id, Naming: naming, Weight: weight, Description: description})
 	}
-	fmt.Println("КАКА2.2")
-
 	return prod
 }
 func ConnectDd() *sql.DB {
-	db, err := sql.Open("postgres", DatabaseURL())
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
+	var err error
+	for {
+		db, err = sql.Open("postgres", DatabaseURL1())
+		if err != nil {
+			log.Println(err)
+			time.Sleep(time.Second * 2)
+		} else {
+			break
+		}
 	}
-	check := db.Ping()
-	if check != nil {
-		fmt.Println(check)
+	for {
+		check := db.Ping()
+		if check != nil {
+			log.Println(check)
+			time.Sleep(time.Second * 2)
+		} else {
+			break
+		}
 	}
+
 	return db
+}
+func DatabaseURL1() string {
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbname)
 }
 func DatabaseURL() string {
 	host := os.Getenv("DB_HOST")
@@ -285,7 +204,6 @@ func DatabaseURL() string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
 }
 func GetProducts(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("КАКА2")
 	prods := GetData()
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
@@ -371,9 +289,9 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func POSTCart(w http.ResponseWriter, r *http.Request) {
-	jsonData := GraphQl()
+	jsonData, _ := json.Marshal(cart)
 	fmt.Println(string(jsonData))
-	resp, err := http.Post("http://localhost:8081/orders", "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post("http://order:8081/orders", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Fatal(err)
 	}

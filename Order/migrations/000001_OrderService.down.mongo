@@ -1,2 +1,0 @@
-use OrderS;
-db.createCollection("Order");

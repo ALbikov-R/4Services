@@ -10,8 +10,12 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"time"
 
 	pb "github.com/ALbikov-R/4ServicesGRPC/gen"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"google.golang.org/grpc"
@@ -107,6 +111,7 @@ func (s *grpcServer) UpdProduct(ctx context.Context, in *pb.CreateRequest) (*pb.
 }
 func main() {
 	db = ConnectDd()
+	MigrateUP()
 	defer db.Close()
 	log.Println("Подключение к PostgreSQL успешно!")
 	ch := make(chan error)
@@ -116,6 +121,24 @@ func main() {
 		log.Println(<-ch)
 	}
 	fmt.Println("service is down")
+}
+func MigrateUP() {
+	m, err := migrate.New("file://migrations", DatabaseURL1()+"&x-migrations-table=items_schema")
+	if err != nil {
+		log.Fatal("Fatal to initialize migrate", err)
+	}
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatal("Failed to apply migrations:", err)
+	}
+	log.Println("Migrations applied successfully")
+}
+func DatabaseURL1() string {
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbname)
 }
 func restStart(ch chan error) {
 	router := mux.NewRouter()
@@ -224,11 +247,25 @@ func DelInv(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func ConnectDd() *sql.DB {
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_NAME"))
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
+	var db *sql.DB
+	var err error
+	for {
+		db, err = sql.Open("postgres", DatabaseURL1())
+		if err != nil {
+			log.Println(err)
+			time.Sleep(time.Second * 2)
+		} else {
+			break
+		}
+	}
+	for {
+		check := db.Ping()
+		if check != nil {
+			time.Sleep(time.Second * 2)
+			log.Println(check)
+		} else {
+			break
+		}
 	}
 	return db
 }

@@ -16,12 +16,15 @@ RUN go build -o /go/bin/inventory .
 
 # Создаем конечный образ
 FROM alpine AS runner
-
-# Копируем бинарный файл из предыдущего образа в текущий образ
-COPY --from=builder /go/bin/inventory /inventory
-
 # Задаем рабочую директорию
 WORKDIR /
+# Копируем бинарный файл из предыдущего образа в текущий образ
+COPY --from=builder /go/bin/inventory /inventory
+# Копируем миграции БД
+COPY migrations /migrations
+
+
 EXPOSE 8082 1487
+
 # Запускаем приложение
 CMD ["/inventory"]

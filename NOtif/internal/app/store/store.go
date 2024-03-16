@@ -10,18 +10,18 @@ import (
 
 type Store struct {
 	client            *mongo.Client
-	config            *Config
+	Config            *Config
 	messageRepository *MessageRepository
 }
 
 func New() *Store {
 	return &Store{
-		config: NewConfig(),
+		Config: NewConfig(),
 	}
 }
 
 func (s *Store) Open() error {
-	clientOptions := options.Client().ApplyURI(s.config.MongoURI)
+	clientOptions := options.Client().ApplyURI(s.Config.MongoURI)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var err error

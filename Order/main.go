@@ -60,13 +60,10 @@ type Congrpc struct {
 
 var (
 	client         *mongo.Client
-	MongoURI       = "mongodb://localhost:27017"
-	PortAddr       = ":8081"
 	DataBaseName   = "OrderService"
 	CollectionName = "Order"
 	producer       Producer
-	prodAddr       = []string{"localhost:9092"}
-	topicName      = "Order_test"
+	topicName      = os.Getenv("TOPIC")
 	connect        Congrpc
 )
 
@@ -79,10 +76,9 @@ func main() {
 		fmt.Println("Подключение к MongoDB успешно!")
 		defer client.Disconnect(context.Background())
 	}
-	/*
-		if err = CreateProducer(); err != nil {
-			log.Fatal(err)
-		}*/
+	if err = CreateProducer(); err != nil {
+		log.Fatal(err)
+	}
 	ConnectGrpc()
 	defer CloseProducer()
 	router := mux.NewRouter()
@@ -117,29 +113,23 @@ func CloseProducer() {
 	}
 }
 func CreateProducer() error {
-	config := sarama.NewConfig()
-	var err error
-	proder, err := sarama.NewAsyncProducer([]string{"localhost:9092"}, config)
-	if err != nil {
-		return err
-	}
+	proder := connectProd()
 	producer.prod = proder
 	producer.signals = make(chan os.Signal, 1)
 	signal.Notify(producer.signals, os.Interrupt)
 	return nil
 }
-
-//Замена данных заказа ID
-/*
-func ReplaceID(id string, prod []Products) error {
-	collection := client.Database(DataBaseName).Collection(CollectionName)
-	filter := bson.M{"_id": id}
-	_, err := collection.ReplaceOne(context.TODO(), filter, prod)
-	if err != nil {
-		return err
+func connectProd() sarama.AsyncProducer {
+	config := sarama.NewConfig()
+	for {
+		proder, err := sarama.NewAsyncProducer([]string{os.Getenv("KAFKA_PORT")}, config)
+		if err != nil {
+			time.Sleep(time.Second * 2)
+		} else {
+			return proder
+		}
 	}
-	return nil
-}*/
+}
 func ReplaceID(id string, prods []Products) error {
 	collection := client.Database(DataBaseName).Collection(CollectionName)
 	filter := bson.M{"_id": id}

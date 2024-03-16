@@ -10,6 +10,6 @@ type MessageRepository struct {
 }
 
 func (r *MessageRepository) Create(model *model.Message) error {
-	r.store.client.Database(r.store.config.DataBaseName).Collection(r.store.config.CollectionName).InsertOne(context.TODO(), model)
+	r.store.client.Database(r.store.Config.DataBaseName).Collection(r.store.Config.CollectionName).InsertOne(context.TODO(), model)
 	return nil
 }

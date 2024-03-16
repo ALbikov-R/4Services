@@ -16,12 +16,14 @@ RUN go build -o /go/bin/prod .
 
 # Создаем конечный образ
 FROM alpine AS runner
+# Задаем рабочую директорию
+WORKDIR /
 
 # Копируем бинарный файл из предыдущего образа в текущий образ
 COPY --from=builder /go/bin/prod /prod
+# Копируем миграции БД
+COPY migrations /migrations
 
-# Задаем рабочую директорию
-WORKDIR /
 EXPOSE 8080
 # Запускаем приложение
 CMD ["/prod"]
