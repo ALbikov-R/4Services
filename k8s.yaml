@@ -1,0 +1,304 @@
+#Postgres deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: postgres-deploy
+spec: 
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:13
+          env: 
+          - name: POSTGRES_USER
+            value: "kitten23"
+          - name: POSTGRES_PASSWORD
+            value: "1234"
+          - name: POSTGRES_DB
+            value: "service"
+          ports:
+          - containerPort: 5432
+          volumeMounts:
+          - mountPath: /var/lib/postgresql_data
+            name: postgres-storage
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "500m"
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec: 
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 512Mi
+---
+#Postgres Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec: 
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:latest
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: "root"
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          value: "example"
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: mongo-storage
+          mountPath: /data/db
+      volumes:
+      - name: mongo-storage
+        persistentVolumeClaim:
+          claimName: mongodb-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+spec:
+  ports:
+  - port: 27017
+    targetPort: 27017
+  selector:
+    app: mongodb
+  type: ClusterIP
+---
+# Product deploy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product
+spec: 
+  selector:
+    matchLabels:
+      app: product
+  template:
+    metadata:
+      labels:
+        app: product
+    spec:
+      containers:
+      - name: product
+        image: chelbos/product:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: "kitten23"
+        - name: DB_PASSWORD
+          value: "1234"
+        - name: DB_NAME
+          value: "service"
+        - name: PORT_gRPC
+          value: "inventory:1487"
+        - name: PORT_router
+          value: ":8080"
+---
+# Product service
+apiVersion: v1
+kind: Service
+metadata:
+  name: product
+spec:
+  ports:
+  - name: htpp
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: product
+  type: NodePort
+---
+# Order deploy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order
+spec: 
+  selector:
+    matchLabels:
+      app: order
+  template:
+    metadata:
+      labels:
+        app: order
+    spec: 
+      containers:
+      - name: order
+        image: chelbos/order:latest
+        ports:
+        - containerPort: 8081
+        env:
+        - name: MONGODB_URI
+          value: "mongodb://root:example@mongodb:27017/"
+        - name: KAFKA_PORT
+          value: "my-kafka-release.default.svc.cluster.local:9092"
+        - name: TOPIC
+          value: "Order"
+        - name: PORT_gRPC
+          value: "inventory:1487"
+        - name: PORT_router
+          value: ":8081"
+---
+# Order-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: order
+spec:
+  ports:
+  - name: tcp
+    port: 8081
+    targetPort: 8081
+  - name: kafka
+    port: 9092
+  selector:
+    app: order
+  type: NodePort
+---
+# Inventory deploy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+spec: 
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec: 
+      containers:
+      - name: inventory
+        image: chelbos/inventory:latest
+        ports:
+        - containerPort: 8082
+        - containerPort: 1487
+        env:
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: "kitten23"
+        - name: DB_PASSWORD
+          value: "1234"
+        - name: DB_NAME
+          value: "service"
+        - name: PORT_gRPC
+          value: ":1487"
+        - name: PORT_router
+          value: ":8082"
+---
+# inventory-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory
+spec:
+  ports:
+  - name: http
+    port: 8082
+    targetPort: 8082
+  - name: grpc
+    port: 1487
+    targetPort: 1487
+  selector:
+    app: inventory
+  type: NodePort
+---
+#Notification-deploy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification
+spec: 
+  selector:
+    matchLabels:
+      app: notification
+  template:
+    metadata:
+      labels:
+        app: notification
+    spec: 
+      containers:
+      - name: notification-app
+        image: chelbos/notif:latest
+        env:
+        - name: MONGODB_URI
+          value: "mongodb://root:example@mongodb:27017/"
+        - name: KAFKA_PORT
+          value: "kafka-service:9092"
+        - name: TOPIC
+          value: "Order"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9092
+    targetPort: 9092
+    name: kafka-port
+  selector:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/instance: my-kafka
