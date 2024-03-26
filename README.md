@@ -9,7 +9,9 @@
 + gRPC
 + Docker
 + REST
++ kubernetes
 ## Установка и запуск
+### Docker
 Для установки сервиса:
 ```text
 git clone https://github.com/ALbikov-R/4Services .
@@ -19,6 +21,17 @@ git clone https://github.com/ALbikov-R/4Services .
 docker-compose up --build
 ```
 В результате чего будет запущен в Docker'e образы реализованных сервисов.
+### Kuber
+Для установки сервиса:
+```text
+git clone https://github.com/ALbikov-R/4Services .
+```
+Создание подов происходит в 2 этапа. Сначала создается kafka сервис, через helm, а потом остальные элементы сервиса:
+```
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install my-kafka bitnami/kafka -f values.yaml
+kubectl apply -f k8s.yaml
+```
 ## gRPC
 Proto файл расположен по адресу https://github.com/ALbikov-R/4ServicesGRPC
 ```text
